@@ -39,32 +39,75 @@ def create_app(test_config=None):
 
     @app.route("/users", methods=["GET", "POST"])
     def users():
-        """List or create users.
 
-        TODO: Students should query ``User`` objects, serialize them to JSON,
-        and handle incoming POST data to create new users.
-        """
+        if request.method == "GET":
+            users = models.User.query.all()
 
-        return (
-            jsonify({"message": "TODO: implement user listing/creation"}),
-            501,
-        )
+            return jsonify([
+                {"id": u.id, "username": u.username}
+                for u in users
+            ]), 200
 
+        if request.method == "POST":
+            data = request.get_json()
+
+            if not data or "username" not in data:
+                return jsonify({"error": "username required"}), 400
+
+            new_user = models.User(username=data["username"])
+            db.session.add(new_user)
+            db.session.commit()
+
+            return jsonify({
+                "id": new_user.id,
+                "username": new_user.username
+            }), 201
     @app.route("/posts", methods=["GET", "POST"])
     def posts():
-        """List or create posts.
 
-        TODO: Students should query ``Post`` objects, include user data, and
-        allow creating posts tied to a valid ``user_id``.
-        """
+        if request.method == "GET":
+            posts = models.Post.query.all()
 
-        return (
-            jsonify({"message": "TODO: implement post listing/creation"}),
-            501,
-        )
+            return jsonify([
+                {
+                    "id": p.id,
+                    "title": p.title,
+                    "content": p.content,
+                    "user_id": p.user_id,
+                    "author": p.author.username
+                }
+                for p in posts
+            ]), 200
+
+        if request.method == "POST":
+            data = request.get_json()
+            required = ["title", "content", "user_id"]
+
+            if not data or not all(k in data for k in required):
+                return jsonify({"error": "Missing fields"}), 400
+
+            # Check if user exists
+            user = models.User.query.get(data["user_id"])
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            new_post = models.Post(
+                title=data["title"],
+                content=data["content"],
+                user_id=data["user_id"]
+            )
+
+            db.session.add(new_post)
+            db.session.commit()
+
+            return jsonify({
+                "id": new_post.id,
+                "title": new_post.title,
+                "content": new_post.content,
+                "user_id": new_post.user_id
+            }), 201
 
     return app
-
 
 # Expose a module-level application for convenience with certain tools
 app = create_app()
